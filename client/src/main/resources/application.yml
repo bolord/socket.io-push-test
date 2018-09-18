@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: java-socket-client
+
+logging:
+    file: ${spring.application.name}.log
+    
+socket:
+    server:
+        uri: http://localhost:7001
