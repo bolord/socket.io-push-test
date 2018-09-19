@@ -7,7 +7,9 @@ module.exports = appInfo => {
     config.keys = appInfo.name + '_1536806129940_1927';
 
     // add your config here
-    config.middleware = [];
+    config.middleware = [
+        'responseTime',
+    ];
 
     config.io = {
         init: {}, // passed to engine.io
