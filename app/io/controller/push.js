@@ -1,44 +1,6 @@
 const { Controller } = require('egg');
 const _ = require('lodash');
 
-const DEF_PUSH_TO_ALL_DATA = () => {
-    return {
-        puid: '101010201809181737250001',
-        data: {
-            time: new Date(),
-        },
-        timestamp: +new Date(),
-    }
-};
-
-const SAMPLE_PUSH_DATA = {
-    QRLIST: [
-        {
-            AFTERTIMES: 0,
-            AID: '101',
-            CHANNELID: '6205,6210,6220,6230,6520,6860,6870',
-            COUNTDOWN: 1,
-            DELIVERID: '844',
-            FODDERLIST: [
-                {
-                    BACKURL: 'http://172.31.252.35/mssppic/material/20180614090342685.png',
-                    MATERIAL_ORDER: 1,
-                    QRHP: 70,
-                    QRSIZE: 150,
-                    QRURL: 'http://weixin.qq.com/q/02yAR6tahRdVi1lha9xrci?qrtype=WC',
-                    QRWP: 50,
-                },
-            ],
-            LOGICDEVNO: '8270104243895428',
-            QRTIME: '20180712 17:20:00',
-            ROTATION_INTERVAL: 0,
-            ROTATION_ORDER: 1,
-            ROTATION_SWITCH: 1,
-            WORKTIMES: 90000,
-        },
-    ],
-};
-
 class PushController extends Controller {
 
     /**
@@ -47,14 +9,15 @@ class PushController extends Controller {
      * @memberof PushController
      */
     async pushToAll() {
-        const { ctx, app } = this;
-        const { data } = ctx.request.query;
+        const { ctx } = this;
+        const { event, data } = ctx.request.query;
 
-        app.io.sockets.emit('message', data || DEF_PUSH_TO_ALL_DATA());
+        const result = await ctx.service.push.pushToAll(event, data);
 
         ctx.body = {
             success: true,
             timestamp: +new Date(),
+            ...result,
         };
     }
 
@@ -65,9 +28,21 @@ class PushController extends Controller {
      */
     async pushToGroup() {
         const { ctx, app } = this;
-        const { data } = ctx.request.query;
+        const { cids, data } = ctx.request.query;
+        const { sockets } = app.io;
 
-        app.io.sockets.emit('message', data || DEF_PUSH_TO_ALL_DATA());
+        if (!_.isString(cids)) {
+            throw new Error('参数 cids 格式不正确');
+        }
+
+        const cidlist = cids.split(',');
+
+        cidlist.forEach(cid => {
+            const socket = sockets.sockets[cid];
+            if (socket && socket.connected) {
+                socket.emit('message', data || DEF_PUSH_TO_ALL_DATA());
+            }
+        });
 
         ctx.body = {
             success: true,
@@ -82,10 +57,54 @@ class PushController extends Controller {
      */
     async pushToGroupWithAck() {
         const { ctx, app } = this;
-        const { data } = ctx.request.query;
+        const { cids, data } = ctx.request.query;
+        const { sockets } = app.io;
 
-        app.io.sockets.emit('message', data || DEF_PUSH_TO_ALL_DATA());
+        if (!_.isString(cids)) {
+            throw new Error('参数 cids 格式不正确');
+        }
 
+        const cidlist = cids.split(',');
+
+        cidlist.forEach(cid => {
+            const socket = sockets.sockets[cid];
+            if (socket && socket.connected) {
+                socket.emit('message-ack', data || DEF_PUSH_TO_ALL_DATA(), answer => {
+                    console.log(`[PushAPI] - pushToGroupWithAck: ACK = ${answer}`);
+                });
+            }
+        });
+        ctx.body = {
+            success: true,
+            timestamp: +new Date(),
+        };
+    }
+
+
+    /**
+     * 推送至列表指定的客户端，附带应答（按序推送）
+     *
+     * @memberof PushController
+     */
+    async pushToGroupWithAdaptAck() {
+        const { ctx, app } = this;
+        const { cids, data } = ctx.request.query;
+        const { sockets } = app.io;
+
+        if (!_.isString(cids)) {
+            throw new Error('参数 cids 格式不正确');
+        }
+
+        const cidlist = cids.split(',');
+
+        cidlist.forEach(cid => {
+            const socket = sockets.sockets[cid];
+            if (socket && socket.connected) {
+                socket.emit('message-ack', data || DEF_PUSH_TO_ALL_DATA(), answer => {
+                    console.log(`[PushAPI] - pushToGroupWithAck: ACK = ${answer}`);
+                });
+            }
+        });
         ctx.body = {
             success: true,
             timestamp: +new Date(),
