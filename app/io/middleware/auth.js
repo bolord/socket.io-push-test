@@ -7,7 +7,6 @@ module.exports = app => {
 
         const { group } = socket.handshake.query;
 
-        console.log(group);
         if (group) {
             socket.join(group, () => {
                 console.log('join callback');
